@@ -1,3 +1,5 @@
+import time
+
 import torch
 from torch.nn import functional as F
 
@@ -6,8 +8,8 @@ from gpt_model import GPT, GPTConfig
 
 # autodetect device
 device = "cpu"
-if torch.mps.is_available():
-    device = "mps"
+if torch.backends.mps.is_available():
+    device = "cpu" # default to cpu on Mac for now, as mps is super slow
 elif torch.cuda.is_available():
     device = "cuda"
 print("using device:", device)
@@ -19,22 +21,38 @@ if device == "mps":
 elif device == "cuda":
     torch.cuda.manual_seed(1337)
 
-train_loader = DataLoaderLite(B=4, T=32)
+train_loader = DataLoaderLite(B=8, T=1024)
 
 model = GPT(GPTConfig())
 model.to(device)
+model = torch.compile(model)
 
 # optimise!
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-for i in range(50):
+for i in range(4):
+    t0 = time.time()
     x, y = train_loader.next_batch()
     x = x.to(device)
     y = y.to(device)
     optimizer.zero_grad()
-    logits, loss = model(x, y)
+    if device == "cuda":
+        with torch.autocast(device_type=device, dtype=torch.bfloat16):
+            logits, loss = model(x, y)
+    else:
+        logits, loss = model(x, y)
     loss.backward()
     optimizer.step()
-    print(f"step {i}, loss {loss.item():.5f}")
+
+    if device == "mps":
+        torch.mps.synchronize()
+    elif device == "cuda":
+        torch.cuda.synchronize()
+    elif device == "cpu":
+        torch.cpu.synchronize()
+    t1 = time.time()
+    dt = (t1 - t0) * 1000  # time difference in ms
+    tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
+    print(f"step {i}, loss {loss.item():.5f}, time {dt:.2f}ms, {tokens_per_sec:.2f} tokens/sec")
 
 import sys;
 
