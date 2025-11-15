@@ -30,8 +30,8 @@ model = torch.compile(model)
 
 max_learning_rate = 6e-4
 min_learning_rate = max_learning_rate * 0.1
-warmup_steps = 4
-max_steps = 20
+warmup_steps = 2
+max_steps = 10
 
 
 def get_learning_rate(step):
@@ -51,7 +51,8 @@ def get_learning_rate(step):
 
 
 # optimise!
-optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-9)
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device)
+
 for step in range(max_steps):
     t0 = time.time()
     x, y = train_loader.next_batch()
@@ -83,7 +84,7 @@ for step in range(max_steps):
     dt = (t1 - t0)  # time difference
     tokens_per_sec = (train_loader.B * train_loader.T) / dt
     print(
-        f"step {step:4d} | loss: {loss.item():.6f} | time: {dt * 1000:.2f}ms | norm: {norm:.4f} | speed: {tokens_per_sec:.2f} tokens/sec")
+        f"step {step:4d} | loss: {loss.item():.6f} | lr: {learning_rate:.6f} | time: {dt * 1000:.2f}ms | norm: {norm:.4f} | speed: {tokens_per_sec:.2f} tokens/sec")
 
 import sys;
 
