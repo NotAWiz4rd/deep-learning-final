@@ -12,6 +12,13 @@ elif torch.cuda.is_available():
     device = "cuda"
 print("using device:", device)
 
+# reproducibility
+torch.manual_seed(1337)
+if device == "mps":
+    torch.mps.manual_seed(1337)
+elif device == "cuda":
+    torch.cuda.manual_seed(1337)
+
 train_loader = DataLoaderLite(B=4, T=32)
 
 model = GPT(GPTConfig())
