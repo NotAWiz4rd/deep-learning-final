@@ -22,9 +22,17 @@ if device == "mps":
 elif device == "cuda":
     torch.cuda.manual_seed(1337)
 
+total_batch_size = 524288  # total tokens per batch
+B = 8 # micro batch size
+T = 1024
+assert total_batch_size % (B * T) == 0, "total batch size must be divisible by B * T"
+grad_accumulation_steps = total_batch_size // (B * T)
+print(f"total desired batch size: {total_batch_size} tokens")
+print(f"=> calcualted gradient accumulation steps: {grad_accumulation_steps}")
+
 train_loader = DataLoaderLite(B=8, T=1024)
 
-model = GPT(GPTConfig())  # todo potentially set vocab size to 50304 to optimise for nice numbers in CUDA
+model = GPT(GPTConfig(vocab_size=50304))  # potentially set vocab size to 50304 to optimise for nice numbers in CUDA
 model.to(device)
 model = torch.compile(model)
 
@@ -55,16 +63,20 @@ optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, dev
 
 for step in range(max_steps):
     t0 = time.time()
-    x, y = train_loader.next_batch()
-    x = x.to(device)
-    y = y.to(device)
     optimizer.zero_grad()
-    if device == "cuda":
-        with torch.autocast(device_type=device, dtype=torch.bfloat16):
+    loss_accum = 0.0
+    for micro_step in range(grad_accumulation_steps):
+        x, y = train_loader.next_batch()
+        x = x.to(device)
+        y = y.to(device)
+        if device == "cuda":
+            with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                logits, loss = model(x, y)
+        else:
             logits, loss = model(x, y)
-    else:
-        logits, loss = model(x, y)
-    loss.backward()
+        loss = loss / grad_accumulation_steps # scale the loss to account for gradient accumulation
+        loss_accum += loss.detach()
+        loss.backward()
     # gradient clipping to prevent shocking model updates
     norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     # determine and set the learning rate for this iteration
@@ -82,9 +94,10 @@ for step in range(max_steps):
         torch.cpu.synchronize()
     t1 = time.time()
     dt = (t1 - t0)  # time difference
-    tokens_per_sec = (train_loader.B * train_loader.T) / dt
+    tokens_processed = train_loader.B * train_loader.T * grad_accumulation_steps
+    tokens_per_sec = tokens_processed / dt
     print(
-        f"step {step:4d} | loss: {loss.item():.6f} | lr: {learning_rate:.6f} | time: {dt * 1000:.2f}ms | norm: {norm:.4f} | speed: {tokens_per_sec:.2f} tokens/sec")
+        f"step {step:4d} | loss: {loss_accum.item():.6f} | lr: {learning_rate:.6f} | time: {dt * 1000:.2f}ms | norm: {norm:.4f} | speed: {tokens_per_sec:.2f} tokens/sec")
 
 import sys;
 
