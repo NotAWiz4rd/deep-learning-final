@@ -1,8 +1,8 @@
 import math
+import os
 import time
 
 import torch
-from torch.nn import functional as F
 
 from data_loader import DataLoaderLite
 from gpt_model import GPT, GPTConfig
@@ -23,20 +23,22 @@ elif device == "cuda":
     torch.cuda.manual_seed(1337)
 
 total_batch_size = 524288  # total tokens per batch
-B = 8 # micro batch size
+B = 64  # micro batch size
 T = 1024
 assert total_batch_size % (B * T) == 0, "total batch size must be divisible by B * T"
 grad_accumulation_steps = total_batch_size // (B * T)
 print(f"total desired batch size: {total_batch_size} tokens")
 print(f"=> calcualted gradient accumulation steps: {grad_accumulation_steps}")
 
-train_loader = DataLoaderLite(B=8, T=1024)
+train_loader = DataLoaderLite(B=B, T=T, split="train")
+val_loader = DataLoaderLite(B=B, T=T, split="val")
 
 model = GPT(GPTConfig(vocab_size=50304))  # potentially set vocab size to 50304 to optimise for nice numbers in CUDA
 model.to(device)
 model = torch.compile(model)
 
-max_learning_rate = 6e-4
+# todo adjust these hyperparameters as for real training run
+max_learning_rate = 6e-4 * 2 # double learning rate for better training performance
 min_learning_rate = max_learning_rate * 0.1
 warmup_steps = 2
 max_steps = 10
@@ -61,8 +63,51 @@ def get_learning_rate(step):
 # optimise!
 optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device)
 
+# create the log directory we will write checkpoints to and log to
+log_dir = "log"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "log.txt")
+with open(log_file, "w") as f:  # open for writing to clear the file
+    pass
+
 for step in range(max_steps):
     t0 = time.time()
+    last_step = (step == max_steps - 1)
+
+    # once in a while evaluate our validation loss
+    if step % 100 == 0 or last_step:
+        model.eval()
+        val_loader.reset()
+        with torch.no_grad():
+            val_loss_accum = 0.0
+            val_loss_steps = 20
+            for _ in range(val_loss_steps):
+                x, y = val_loader.next_batch()
+                x, y = x.to(device), y.to(device)
+                if device == "cuda":
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                        logits, loss = model(x, y)
+                else:
+                    logits, loss = model(x, y)
+                val_loss_accum += loss.detach()
+
+        print(f"validation loss: {val_loss_accum.item():.4f}")
+        with open(log_file, "a") as f:
+            f.write(f"{step} val {val_loss_accum.item():.4f}\n")
+        if step > 0 and (step % 5000 == 0 or last_step):
+            # optionally write model checkpoints
+            checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
+            checkpoint = {
+                'model': model.state_dict(),
+                'config': model.config,
+                'step': step,
+                'val_loss': val_loss_accum.item()
+            }
+            # we might also want to add optimizer.state_dict() and
+            # rng seeds etc., if we wanted to more exactly resume training
+            torch.save(checkpoint, checkpoint_path)
+
+    model.train()
     optimizer.zero_grad()
     loss_accum = 0.0
     for micro_step in range(grad_accumulation_steps):
@@ -74,7 +119,7 @@ for step in range(max_steps):
                 logits, loss = model(x, y)
         else:
             logits, loss = model(x, y)
-        loss = loss / grad_accumulation_steps # scale the loss to account for gradient accumulation
+        loss = loss / grad_accumulation_steps  # scale the loss to account for gradient accumulation
         loss_accum += loss.detach()
         loss.backward()
     # gradient clipping to prevent shocking model updates
@@ -97,39 +142,4 @@ for step in range(max_steps):
     tokens_processed = train_loader.B * train_loader.T * grad_accumulation_steps
     tokens_per_sec = tokens_processed / dt
     print(
-        f"step {step:4d} | loss: {loss_accum.item():.6f} | lr: {learning_rate:.6f} | time: {dt * 1000:.2f}ms | norm: {norm:.4f} | speed: {tokens_per_sec:.2f} tokens/sec")
-
-import sys;
-
-sys.exit(0)
-
-# prefix tokens
-model.eval()
-num_return_sequences = 5
-max_length = 30
-
-torch.manual_seed(42)
-torch.mps.manual_seed(42)
-while x.size(1) < max_length:
-    # forward the model to get the logits
-    with torch.no_grad():
-        logits = model(x)  # (5, T, vocab_size)
-        # take the logits at the last position
-        logits = logits[:, -1, :]  # (5, vocab_size)
-        # get the probabilities
-        probs = F.softmax(logits, dim=-1)  # (5, vocab_size)
-        # do top-k sampling of 50
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-        # select a token from the top-k probabilities
-        ix = torch.multinomial(topk_probs, num_samples=1)  # (5, 1)
-        # gather the corresponding token indices
-        next_token = torch.gather(topk_indices, -1, ix)
-        x = torch.cat((x, next_token), dim=1)  # (5, T+1)
-
-# decode and print the sequences
-for i in range(num_return_sequences):
-    tokens = x[i, :max_length].tolist()
-    decoded = enc.decode(tokens)
-    print(">", decoded)
-
-print("didn't crash yay!")
+        f"step {step:5d} | loss: {loss_accum.item():.6f} | lr: {learning_rate:.6f} | norm: {norm:.4f} | time: {dt * 1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
