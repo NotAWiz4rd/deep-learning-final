@@ -33,6 +33,9 @@ print(f"=> calcualted gradient accumulation steps: {grad_accumulation_steps}")
 train_loader = DataLoaderLite(B=B, T=T, split="train")
 val_loader = DataLoaderLite(B=B, T=T, split="val")
 
+if device == "cuda":
+    torch.set_float32_matmul_precision('high') # sets precision down from 'highest', which should use TF32
+
 model = GPT(GPTConfig(vocab_size=50304))  # potentially set vocab size to 50304 to optimise for nice numbers in CUDA
 model.to(device)
 model = torch.compile(model)
