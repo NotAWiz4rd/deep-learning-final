@@ -1,32 +1,52 @@
-import tiktoken
+import os
+
+import numpy as np
 import torch
 
 
+def load_tokens(filename):
+    npt = np.load(filename)
+    npt = npt.astype(np.int32)
+    ptt = torch.tensor(npt, dtype=torch.long)
+    return ptt
+
+
 class DataLoaderLite:
-    def __init__(self, B, T):
+    def __init__(self, B, T, split):
         self.B = B  # batch size
         self.T = T  # sequence length
-        self.tokenizer = tiktoken.get_encoding("gpt2")  # Using GPT-2 tokenizer
+        self.current_shard = 0
+        self.current_position = None
+        self.tokens = None
+        assert split in {'train', 'val'}
 
-        # at init load tokens from disk and store them in memory
-        with open('datasets/tiny-shakespeare.txt', 'r') as f:
-            text = f.read()
+        # get the shard filenames
+        data_root = "edu_fineweb10B"
+        shards = os.listdir(data_root)
+        shards = [s for s in shards if split in s]
+        shards = sorted(shards)
+        shards = [os.path.join(data_root, s) for s in shards]
+        self.shards = shards
+        assert len(shards) > 0, f"no shards found for split {split}"
+        print(f"found {len(shards)} shards for split {split}")
+        self.reset()
 
-        tokens = self.tokenizer.encode(text)
-        self.tokens = torch.tensor(tokens)
-        print(f"loaded {len(self.tokens)} tokens")
-        print(f"1 epoch = {len(self.tokens) // (B * T)} batches of size {B}, sequence length {T}")
-
-        self.current_position = 0
+    def reset(self):
+        # state, init at shard zero
+        self.current_shard = 0
+        self.tokens = load_tokens(self.shards[self.current_shard])
+        self.current_position = self.B * self.T
 
     def next_batch(self):
         B, T = self.B, self.T
         buffer = self.tokens[self.current_position: self.current_position + B * T + 1]
-        x = buffer[:-1].view(B, T)  # inputs
-        y = buffer[1:].view(B, T)  # targets
+        x = (buffer[:-1]).view(B, T)  # inputs
+        y = (buffer[1:]).view(B, T)  # targets
         # advance the position in the tensor
         self.current_position += B * T
-        # if loading the next batch would go out of bounds, reset position to zero
-        if self.current_position + B * T + 1 >= len(self.tokens):
-            self.current_position = 0
+        # if loading the next batch would be out of bounds, advance to next shard
+        if self.current_position + (B * T + 1) > len(self.tokens):
+            self.current_shard = (self.current_shard + 1) % len(self.shards)
+            self.tokens = load_tokens(self.shards[self.current_shard])
+            self.current_position = B * T
         return x, y
