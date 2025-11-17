@@ -1,10 +1,10 @@
 """
-FineWeb-Edu dataset (for srs pretraining)
+FineWeb-Edu dataset (for serious pretraining)
 https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu
 Downloads and tokenizes the data and saves data shards to disk.
 Run simply as:
 $ python fineweb.py
-Will save shards to the local directory "edu_fineweb10B".
+Will save shards to the local directory "datasets/edu_fineweb10B".
 """
 
 import multiprocessing as mp
@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from datasets import load_dataset
 
-local_dir = "edu_fineweb10B"
+local_dir = "datasets/edu_fineweb10B"
 remote_name = "sample-10BT"
 shard_size = int(1e8)  # 100M tokens per shard, thus total 100 shards
 
@@ -47,8 +47,8 @@ def write_datafile(filename, tokens_np):
 
 
 # tokenise all documents and write outputs shards, each of shard_size tokens
-nprocs = max(1, os.cpu_count() // 2)
-with mp.Pool(nprocs) as pool:
+num_processors = max(1, os.cpu_count() // 2)
+with mp.Pool(num_processors) as pool:
     shard_index = 0
     # preallocate buffer to hold the current shard
     all_tokens_np = np.empty((shard_size,), dtype=np.uint16)
