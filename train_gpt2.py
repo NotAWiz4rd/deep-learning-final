@@ -28,7 +28,7 @@ T = 1024
 assert total_batch_size % (B * T) == 0, "total batch size must be divisible by B * T"
 grad_accumulation_steps = total_batch_size // (B * T)
 print(f"total desired batch size: {total_batch_size} tokens")
-print(f"=> calcualted gradient accumulation steps: {grad_accumulation_steps}")
+print(f"=> calculated gradient accumulation steps: {grad_accumulation_steps}")
 
 train_loader = DataLoaderLite(B=B, T=T, split="train")
 val_loader = DataLoaderLite(B=B, T=T, split="val")
