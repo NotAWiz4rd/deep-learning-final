@@ -34,17 +34,17 @@ train_loader = DataLoaderLite(B=B, T=T, split="train")
 val_loader = DataLoaderLite(B=B, T=T, split="val")
 
 if device == "cuda":
-    torch.set_float32_matmul_precision('high') # sets precision down from 'highest', which should use TF32
+    torch.set_float32_matmul_precision('high')  # sets precision down from 'highest', which should use TF32
 
 model = GPT(GPTConfig(vocab_size=50304))  # potentially set vocab size to 50304 to optimise for nice numbers in CUDA
 model.to(device)
 model = torch.compile(model)
 
 # todo adjust these hyperparameters as for real training run
-max_learning_rate = 6e-4 * 2 # double learning rate for better training performance
+max_learning_rate = 6e-4 * 2  # double learning rate for better training performance
 min_learning_rate = max_learning_rate * 0.1
-warmup_steps = 2
-max_steps = 10
+warmup_steps = 200 # reduced warmup for quicker start; normal GPT would be about 715 steps
+max_steps = 19073  # about 1 epoch over the 10B token dataset with our setup
 
 
 def get_learning_rate(step):
@@ -64,7 +64,7 @@ def get_learning_rate(step):
 
 
 # optimise!
-optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device)
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=max_learning_rate, device=device)
 
 # create the log directory we will write checkpoints to and log to
 log_dir = "log"
