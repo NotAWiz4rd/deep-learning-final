@@ -8,6 +8,10 @@ Final project for the CU Boulder MSCS Deep Learning course. This project involve
 2. **Large-Scale Pretraining**: Train the model on the 10B token FineWeb-Edu dataset
 3. **Domain-Specific Fine-tuning**: Fine-tune the pretrained model for a specific use case (currently considering RPG dungeon descriptions) to demonstrate that smaller, specialized models can approach the performance of larger general-purpose models
 
+## Performance
+- **Pretraining**: Achieved a training loss of ~3.1 after training on 10B tokens for 19,073 steps
+- **HellaSwag Benchmark**: Achieved ~30.5% accuracy on HellaSwag after pre-training, compared to GPT-2 Small's ~28.9% accuracy (HellaSwag accuracy: 3065/10042=0.3052)
+
 ## Setup
 
 ### Requirements
@@ -86,10 +90,8 @@ Training logs and checkpoints are saved to the `log/` directory.
 
 ## Next Steps
 
-- Complete pretraining on the full 10B token dataset
-- Select and prepare a domain-specific dataset for fine-tuning (e.g., RPG dungeon descriptions)
 - Implement fine-tuning script and evaluate performance against larger general-purpose models
-- Compare specialized model performance to GPT-3/GPT-4 baselines on the target domain
+- Compare specialized model performance to some baselines on the target domain
 
 ## License
 
