@@ -1,0 +1,79 @@
+Using device: cpu
+WARNING: CUDA not available, this will be slow. Intended for GPU.
+Loaded 1000 location samples from datasets/finetune_data.txt
+Total token count (approx GPT-2 BPE): 358726
+Created 630 train sequences and 70 val sequences.
+
+=== Training with LR=0.0001 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.0001] epoch 1/1 - train_loss=3.8549, val_loss=3.5638
+
+=== Training with LR=0.0002 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.0002] epoch 1/1 - train_loss=3.8428, val_loss=3.5293
+
+=== Training with LR=0.0005 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.0005] epoch 1/1 - train_loss=4.0678, val_loss=3.6082
+
+=== Training with LR=0.001 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.001] epoch 1/1 - train_loss=5.2353, val_loss=3.9708
+
+=== Training with LR=0.004 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.004] epoch 1/1 - train_loss=9.0701, val_loss=6.9113
+
+=== Training with LR=0.007 (LR sweep) ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[LR=0.007] epoch 1/1 - train_loss=11.7798, val_loss=7.2115
+
+=== LR SEARCH RESULTS ===
+LR=0.0001: best_val_loss=3.5638
+LR=0.0002: best_val_loss=3.5293
+LR=0.0005: best_val_loss=3.6082
+LR=0.001: best_val_loss=3.9708
+LR=0.004: best_val_loss=6.9113
+LR=0.007: best_val_loss=7.2115
+
+Best LR: 0.0002 (val_loss=3.5293)
+
+
+
+=== FINAL TRAIN with LR=0.0002, epochs=7 ===
+Missing keys: []
+Unexpected keys: []
+number of decayed parameter tensors: 50, with 124354560 parameters
+number of non-decayed parameter tensors: 98, with 121344 parameters
+using fused AdamW: False
+[FINAL] epoch 1/7 - train_loss=3.8395, val_loss=3.5284
+[FINAL] epoch 2/7 - train_loss=3.0693, val_loss=3.4895
+[FINAL] epoch 3/7 - train_loss=2.4456, val_loss=3.6481
+[FINAL] epoch 4/7 - train_loss=1.7589, val_loss=3.9585
+[FINAL] epoch 5/7 - train_loss=1.1149, val_loss=4.2818
+[FINAL] epoch 6/7 - train_loss=0.6211, val_loss=4.5834
+[FINAL] epoch 7/7 - train_loss=0.3230, val_loss=4.8180
