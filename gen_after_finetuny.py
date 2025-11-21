@@ -7,7 +7,7 @@ from gpt_model import GPT
 # CONFIG
 # ======================
 
-CKPT_PATH = "finetune_runs/final_lr_0.0002/finetune_epoch4.pt"
+CKPT_PATH = "finetune_runs/final_lr_0.0002/finetune_epoch2.pt" # val loss is best for this checkpoint
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MAX_TOKENS = 300  # ~1–2 paragraphs
