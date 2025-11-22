@@ -44,7 +44,7 @@ model = torch.compile(model)
 max_learning_rate = 6e-4 * 2  # double learning rate for better training performance
 min_learning_rate = max_learning_rate * 0.1
 warmup_steps = 200 # reduced warmup for quicker start; normal GPT would be about 715 steps
-max_steps = 19073  # about 1 epoch over the 10B token dataset with our setup
+max_steps = 19073 * 3 # about 3 epochs over the 10B token dataset with our setup
 
 
 def get_learning_rate(step):
@@ -78,7 +78,7 @@ for step in range(max_steps):
     last_step = (step == max_steps - 1)
 
     # once in a while evaluate our validation loss
-    if step % 100 == 0 or last_step:
+    if step % 250 == 0 or last_step:
         model.eval()
         val_loader.reset()
         with torch.no_grad():
@@ -96,8 +96,8 @@ for step in range(max_steps):
 
         print(f"validation loss: {val_loss_accum.item():.4f}")
         with open(log_file, "a") as f:
-            f.write(f"{step} val {val_loss_accum.item():.4f}\n")
-        if step > 0 and (step % 3000 == 0 or last_step):
+            f.write(f"{step:05d} val {val_loss_accum.item():.4f}\n")
+        if step > 0 and (step % 2500 == 0 or last_step):
             # optionally write model checkpoints
             checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
             checkpoint = {
@@ -146,3 +146,5 @@ for step in range(max_steps):
     tokens_per_sec = tokens_processed / dt
     print(
         f"step {step:5d} | loss: {loss_accum.item():.6f} | lr: {learning_rate:.6f} | norm: {norm:.4f} | time: {dt * 1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
+    with open(log_file, "a") as f:
+        f.write(f"step {step:5d} | loss: {loss_accum.item():.6f} | lr: {learning_rate:.6f} | norm: {norm:.4f} | time: {dt * 1000:.2f}ms | tok/sec: {tokens_per_sec:.2f}")
