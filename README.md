@@ -1,33 +1,51 @@
-# GPT-2 From Scratch: Deep Learning Final Project
+# Generating Fantasy Location Descriptions with a 124M LLM
 
-Final project for the CU Boulder MSCS Deep Learning course. This project demonstrates the complete lifecycle of building, training, and fine-tuning a large language model from scratch. The project implements GPT-2-Small (124M parameters), trains it on 10 billion tokens of web data, benchmarks its performance, and fine-tunes it for fantasy location descriptions to show that smaller, specialized models can excel in narrow domains.
+Final project for the CU Boulder MSCS Deep Learning course by Max Werner.
+
+## Project Overview
+
+This project explores a fundamental question in modern AI: **Can a small, fully self-trained language model generate high-quality domain-specific text without requiring massive computational resources or proprietary systems?**
+
+Large modern language models are computationally expensive, difficult to deploy on edge devices, and entirely inaccessible for real-time use in settings like video games or procedural RPG tools. This project demonstrates that a 124M-parameter GPT-2-style model, trained from scratch and fine-tuned on a specialized corpus, can generate rich, evocative fantasy location descriptions suitable for games and narrative engines—all while remaining small enough to run on consumer hardware.
+
+The project implements the full deep learning lifecycle:
+- **Architecture implementation**: GPT-2-Small (124M parameters) built from the ground up
+- **Large-scale pretraining**: Training on 10 billion tokens of educational web text (FineWeb-Edu)
+- **Benchmark evaluation**: Testing general linguistic ability on HellaSwag commonsense reasoning
+- **Domain specialization**: Fine-tuning on 1,000 curated fantasy descriptions to achieve stylistic mastery
+
+**Key Finding**: The pretrained model achieved 32.5% on HellaSwag (exceeding GPT-2 Small's 28.9% baseline), and the fine-tuned model generates coherent, atmospheric fantasy descriptions with rich sensory details—demonstrating that smaller, specialized models are a viable path for resource-efficient, domain-specific text generation.
 
 ## Project Goals
 
-1. **Rebuild GPT-2-Small**: Implement a transformer architecture similar to GPT-2-Small (124M parameters) from the ground up
-2. **Large-Scale Pretraining**: Train the model on the 10B token FineWeb-Edu dataset
-3. **Benchmark Performance**: Evaluate the pretrained model on HellaSwag commonsense reasoning benchmark
-4. **Domain-Specific Fine-tuning**: Fine-tune the pretrained model for fantasy location descriptions to demonstrate domain specialization
+1. **Rebuild GPT-2-Small**: Implement a transformer architecture from scratch with 124M parameters
+2. **Large-Scale Pretraining**: Train on the 10B token FineWeb-Edu dataset to establish general linguistic competence
+3. **Benchmark Performance**: Evaluate the model on HellaSwag to verify it learned meaningful language patterns
+4. **Domain-Specific Fine-tuning**: Adapt the pretrained model for fantasy location descriptions, proving that small models can excel in narrow domains when properly specialized
 
 ## Performance Summary
 
 ### Pretraining Results
-- **Training Duration**: 19,073 steps (~1 epoch over 10B tokens)
-- **Final Validation Loss**: 61.75 (down from initial 219.94)
-- **Batch Size**: 524,288 tokens per step (64 micro-batches × 1024 sequence length × 8 gradient accumulation)
-- **Training Time**: Multiple hours on CUDA GPU
+- **Initial Training Run**: 19,073 steps (~1 epoch over 10B tokens), reaching 30.52% HellaSwag accuracy
+- **Extended Training Run**: 57,219 steps (~3 epochs), reaching 32.5% HellaSwag accuracy
+- **Final Validation Loss**: Continued to decrease throughout training, indicating the model remained undertrained
+- **Batch Size**: 524,288 tokens per step (effective batch via gradient accumulation)
+- **Hardware**: 1x H100 80GB GPU via Lambda Cloud (~450,000 tokens/sec, 1000x faster than CPU)
+- **Training Cost**: ~$21.40 for 1-epoch run, ~$64.50 for 3-epoch run
 
 ### HellaSwag Benchmark
-- **Accuracy**: 30.52% (3,065/10,042 correct)
+- **1-Epoch Accuracy**: 30.52% (3,065/10,042 correct)
+- **3-Epoch Accuracy**: 32.53% (3,267/10,042 correct)
 - **Baseline**: OpenAI GPT-2 Small achieves 28.9%
-- **Result**: Successfully exceeded baseline performance despite training from scratch
+- **Result**: Exceeded baseline by ~3.6 percentage points, approaching GPT-3 Small's 33% despite using only 10B tokens (vs. 100B+ for GPT-2/3)
 
 ### Fine-tuning Results
-- **Dataset**: 1,000 synthetic fantasy location descriptions (~359k tokens)
-- **Best Hyperparameter**: Learning rate 2e-4 (from search over 6 values)
+- **Dataset**: 1,000 synthetic fantasy location descriptions generated with GPT-4/GPT-5 (~359k tokens)
+- **Best Hyperparameter**: Learning rate 2e-4 (from search over 6 values: 1e-4 to 2e-3)
 - **Training Progress**: Loss decreased from 3.84 → 0.32 over 7 epochs
-- **Validation**: Best epoch was 2 (val_loss=3.49) before overfitting began
-- **Output Quality**: Generates coherent, atmospheric fantasy descriptions with rich sensory details
+- **Validation**: Best checkpoint at epoch 2 before overfitting began
+- **HellaSwag After Fine-tuning**: 28.9% (expected drop as model specializes away from general language)
+- **Output Quality**: Generates coherent, atmospheric fantasy descriptions with rich sensory details, strong stylistic consistency, and evocative imagery. While not perfect, outputs are suitable for dynamic worldbuilding in games or tabletop RPG assistants.
 
 ## Setup
 
@@ -213,20 +231,30 @@ This script:
 
 ## Results and Insights
 
-### Strengths
-- Successfully trains GPT-2 from scratch and exceeds baseline HellaSwag performance
-- Clean, well-structured code with proper abstractions
-- Comprehensive pipeline from data preparation to evaluation
-- Effective domain adaptation through fine-tuning
+### Key Findings
+
+**Small models can excel at specialized tasks**: The 124M-parameter model, though 100x smaller than modern LLMs, successfully generates rich fantasy descriptions after domain-specific fine-tuning. This demonstrates that specialized small models are viable for resource-constrained applications.
+
+**High-quality data matters more than quantity**: Using the FineWeb-Edu dataset (curated for educational content) enabled the model to exceed GPT-2's baseline performance despite training on 10x fewer tokens than the original GPT-2.
+
+**Fine-tuning creates strong stylistic specialization**: With only ~359k tokens of fantasy descriptions, the model learned to consistently produce atmospheric, sensory-rich text matching the target style. The dramatic qualitative shift from generic to evocative prose validates the fine-tuning approach.
+
+**Efficient training is achievable**: Modern optimizations (flash attention, mixed precision, torch.compile) made training practical on a single GPU, with total costs under $70 for 3 epochs of pretraining.
 
 ### Observations
-- Fine-tuning shows overfitting after epoch 2 (validation loss increases while training loss decreases)
-- Generated samples are coherent with atmospheric language but show some repetitive patterns
-- Model size (124M parameters) is appropriate for academic demonstration
-- Hyperparameter search successfully identified optimal learning rate
+- Validation loss continued decreasing throughout pretraining, indicating the model remained undertrained and would benefit from more compute
+- Fine-tuning showed overfitting after epoch 2, as expected for a small specialized corpus
+- Generated samples exhibit strong stylistic consistency but occasional mid-generation coherence loss
+- HellaSwag accuracy improved from 30.5% (1 epoch) to 32.5% (3 epochs), confirming continued learning
+
+### Limitations and Future Work
+- **Data ordering effects**: Loss curve shows periodic spikes due to unshuffled training shards
+- **Context length**: Increasing sequence length during fine-tuning could enable longer descriptions
+- **Model size scaling**: Exploring whether larger models (e.g., 350M or 774M parameters) improve quality while remaining deployable
+- **Controlled generation**: Adding control tokens for theme, tone, or location type would increase practical utility
 
 ### Academic Achievement
-This project demonstrates the complete machine learning pipeline: architecture design, large-scale training, benchmarking, and domain-specific fine-tuning. The model's HellaSwag performance (30.52%) exceeding the baseline (28.9%) validates the training approach, while the fine-tuned model generates high-quality fantasy descriptions with rich sensory details.
+This project demonstrates the complete deep learning lifecycle from scratch: architecture implementation, large-scale pretraining on 10B tokens, rigorous evaluation on standard benchmarks, and targeted domain adaptation. The results prove that smaller, specialized models remain a viable design space for applications where speed, cost, and deployment constraints matter more than general-purpose reasoning.
 
 ## License
 
