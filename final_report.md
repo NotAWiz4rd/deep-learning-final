@@ -1,6 +1,6 @@
 # Generating Fantasy Location Descriptions with a 124M LLM: Final Project Report
 
-CU Boulder  -  MSCS Deep Learning - Max Werner
+CU Boulder - CSCA 5642: Introduction to Deep Learning - Max Werner
 
 ## 1. Introduction
 Note: Due to the complexity of this project, I have not included code in this report. Please refer to the accompanying code repository for full implementation details.
@@ -12,7 +12,6 @@ The concrete problem I set out to solve was:
 
 To answer this question, I implemented a GPT-2-Small architecture from the ground up, pretrained it on a 10-billion-token web dataset, evaluated its general linguistic and reasoning performance, and then fine-tuned it on a curated fantasy-description corpus that I generated specifically for this task. The project therefore touches the full stack of modern deep learning workflows: data collection and provenance, exploratory data analysis, model implementation and optimization, large-scale pretraining, downstream evaluation, and targeted fine-tuning.
 
-⸻
 
 ## 2. Data Collection and Provenance
 
@@ -36,7 +35,6 @@ Where FineWeb-Edu is large-scale and diverse, the finetuning dataset is small, h
 Each description was wrapped in custom <LOC> … </LOC> tags to provide structural consistency, but otherwise no additional preprocessing was necessary. The total dataset amounted to ~359k tokens, which is small compared to the pretraining corpus but large enough to teach a consistent literary style.
 The dataset can be found in the `datasets/finetuning_data.txt` file.
 
-⸻
 
 ## 3. Exploratory Data Analysis (EDA)
 
@@ -45,6 +43,7 @@ Although the GPT-2 training pipeline does not require the traditional feature-le
 ### 3.1 EDA on FineWeb-Edu
 
 Because FineWeb-Edu consists of billions of tokens, EDA was performed at the token distribution and document structure level rather than by sampling the entire corpus. Several patterns became obvious:
+
 * The token distribution follows a heavy-tailed curve typical of natural language corpora: whitespace, punctuation, and common English words dominate the head, while rare subwords make up the long tail.
 * Document lengths vary drastically, from one-sentence fragments to multi-page articles (from 35 to 159k tokens, with 99.7% falling into the 35 to 16k token range). This non-uniformity reinforces the choice of fixed-length blocks of 1,024 tokens for training.
 * The dataset contains real-world noise such as broken sentences, informal tone shifts, and artifacts like links. However, GPT-style language models are built to absorb this variability, and no aggressive cleaning was performed.
@@ -119,7 +118,6 @@ For pretraining, all data was packed into consecutive blocks of 1,024 tokens. Fo
 
 Text data does not require normalization, scaling, or log transforms, nor does it require outlier removal. The primary transformation is simply tokenization and segmentation.
 
-⸻
 
 ## 4. Model Design, Training, and Analysis
 
@@ -134,6 +132,7 @@ long-range dependencies decay exponentially.
 
 Fantasy location descriptions, however, are highly dependent on long-term coherence - tone, imagery, and spatial descriptions often reference details many sentences apart. This is exactly the type of structure where RNNs degrade significantly, regardless of gating mechanisms.
 RNN-based approaches have also largely been abandoned for text generation because:
+
 * they cannot be parallelised during training (slow)
 * they struggle to model multi-paragraph structure
 * generated text tends to be repetitive or collapse into loops
@@ -146,6 +145,7 @@ Given that even modest-quality generation requires multi-sentence coherence, RNN
 Another potential architecture was convolutional sequence models using dilated convolutions to expand receptive fields. These models can be efficient and achieve good local coherence, and they parallelise well during training.
 
 However, as I found after some research, they introduce two problems:
+
 1.	Receptive field limitations:
 Even with exponential dilation, the effective receptive field is still limited and must be explicitly engineered. For long descriptive passages, this becomes brittle and manually tuned.
 2.	Lack of strong inductive bias for natural language:
@@ -159,12 +159,14 @@ For this project’s needs - paragraph-scale semantic structure - CNN language m
 The obvious alternative would have been a modern high-performing transformer model such as LLaMA-4 or Mistral.
 
 These models:
+
 * deliver significantly better generation quality
 * can capture complex stylistic patterns
 * are comparatively more robust
 * have open-source weights
 
 However, they are also:
+
 * far too large for the intended domain (billions of parameters vs. 124M)
 * incompatible with on-device or game-engine inference
 * expensive to train from scratch, completely violating the project constraint
@@ -178,6 +180,7 @@ My goal is to show that small models can be specialised to outperform their gene
 #### 4.1.4 Why GPT-2 Small is a good Choice
 
 GPT-2 Small (124M parameters) sits in an unusual sweet spot:
+
 * Large enough to capture long-range dependencies and stylistic features
 * Small enough to be hostable on low-resource devices
 * Fully open source, with reference code available
@@ -186,6 +189,7 @@ GPT-2 Small (124M parameters) sits in an unusual sweet spot:
 * Well-studied, making evaluation and debugging manageable (not to be underestimated!)
 
 The availability of a complete, openly documented architecture also makes it straightforward to:
+
 * reimplement the model from scratch
 * customise the training loop
 * finetune on specialised domains
@@ -194,6 +198,7 @@ The availability of a complete, openly documented architecture also makes it str
 ### 4.2 Architecture Implementation
 
 I implemented the GPT-2 Small architecture manually (see transformer_modules.py and gpt_model.py), staying close to the structure described in the original paper and later replications, with some adjustments based on my own experiments or recent research. The model consists of:
+
 * 12 transformer decoder blocks
 * 12 heads per multi-head self-attention layer
 * 768-dimensional embeddings
@@ -210,6 +215,7 @@ Modern optimizations - such as scaled_dot_product_attention, fused AdamW, torch.
 The model was trained on the FineWeb-Edu-10B dataset for at first 19,073 steps, corresponding to roughly one epoch over the 10B-token corpus, and during a second training run for 57.219 (3 epochs)
 
 Training used:
+
 * An effective batch size of 524,288 tokens
 * Gradient accumulation to simulate large batches despite GPU memory limits
 * 1,024-token sequence length
@@ -254,7 +260,6 @@ The validation loss on held-out web text decreased smoothly throughout the entir
 
 ![Validation Loss Curve](training_run/plots/loss_train_vs_val.png)
 
-⸻
 
 ### 4.4 Benchmark Evaluation: HellaSwag
 
@@ -270,13 +275,13 @@ Despite training only one epoch on a 10B-token sample, the reproduction outperfo
 A second training run (with the same seeds) for three epochs yielded 32.53% HellaSwag accuracy (3267/10042 correct), showing that additional pretraining further improves performance, though with a reduced token efficiency (which is to be expected).
 This score is about 1% below that of GPT-3 Small (same architecture and parameters as GPT-2 Small) - see https://arxiv.org/pdf/2005.14165 H.
 
-⸻
 
 ### 4.4 Finetuning
 
 The goal of the finetuning stage was to adapt the pretrained model to a narrow generative domain: atmospheric fantasy location descriptions.
 
 The finetuning procedure was:
+
 * Block size: 512 tokens
 * Batch size: 8 with gradient accumulation of 8
 * Learning rates tested: [1e-4, 2e-4, 5e-4, 7e-4, 1e-3, 2e-3]
@@ -287,6 +292,7 @@ A one-epoch hyperparameter sweep showed that 2e-4 provided the lowest validation
 See finetune_hyperparameter_search.txt for full results.
 
 Using this learning rate for the full run:
+
 * Training loss dropped from 3.84 → 0.32
 * Validation loss reached its minimum at epoch 2
 * From epoch 3 onward, validation loss increased, indicating overfitting
@@ -331,7 +337,6 @@ The model captures the desired atmospheric tone, with rich sensory details and e
 
 Furthermore, the outputs are not always fully coherent, with occasional abrupt topic shifts or vague references. This is expected given the small finetuning dataset and limited training time, but overall the model demonstrates a strong stylistic adaptation.
 
-⸻
 
 ## 5. Conclusion
 
@@ -349,6 +354,7 @@ This demonstrates not only that the original problem is solvable, but also that 
 ## 6. Limitations & Future Work
 
 To make this model more useful in practice, there are several things that would need to be improved:
+
 * Shuffle pretraining data via data loader to remove ordering effects that could be observed in the loss curve.
 * Higher base-coherency. As seen in the samples, the model sometimes loses coherence mid-generation. More finetuning data or longer training could help.
 * Controlled generation. Adding control tokens or prompt engineering could help steer outputs toward specific themes or styles.
